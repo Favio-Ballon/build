@@ -2,7 +2,7 @@ import psycopg2
 
 # Connection parameters
 host = "localhost"
-database = "femcoprueba"
+database = "Femco"
 user = "postgres"
 password = "root"
 
