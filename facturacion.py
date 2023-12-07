@@ -2,6 +2,7 @@ from tkinter import Canvas, PhotoImage, Button, Entry, StringVar, ttk
 from tkinter.ttk import Combobox
 from pathlib import Path
 import login, inventario, cotizaciones, cliente
+import conexion
 
 
 class MyPanel(Canvas):
@@ -120,40 +121,27 @@ class MyPanel(Canvas):
         )
     
     def create_entry(self): 
-        self.entry_bg_1 = self.create_image(
-            680.0,
-            127.5,
-            image=self.entry_image_1
-        )
-        entry_1 = Entry(
-            bd=0,
-            bg="#D9D9D9",
-            fg="#000716",
-            highlightthickness=0
-        )
-        entry_1.place(
-            x=322.0,
-            y=110.0,
-            width=716.0,
-            height=33.0
-        )
-        self.entry_bg_2 = self.create_image(
-            680.0,
-            173.5,
-            image=self.entry_image_2
-        )
-        entry_2 = Entry(
-            bd=0,
-            bg="#D9D9D9",
-            fg="#000716",
-            highlightthickness=0
-        )
-        entry_2.place(
-            x=322.0,
-            y=156.0,
-            width=716.0,
-            height=33.0
-        )
+        #estilo para el combobox
+        combobox_style = ttk.Style()
+        combobox_style.configure('TCombobox', foreground='#000716', background='#D9D9D9', borderwidth=0, relief="flat")
+        
+        #combobox para la agencia
+        conexion.cur.execute("SELECT concat(id, ' - ' ,nombre) FROM agencia;")
+        self.options_agencia = [str(row[0]) for row in conexion.cur.fetchall()]
+        self.agencia_var = StringVar()
+        self.box_agencia = Combobox(self, values=self.options_agencia, textvariable=self.agencia_var, style='TCombobox')
+        self.box_agencia.place(x=322.0, y=120.0, width=716.0, height=33.0)
+
+
+        #combobox para el producto
+        conexion.cur.execute("SELECT concat(codigo, ' - ', nombre) FROM item;")
+        self.options_item = [str(row[0]) for row in conexion.cur.fetchall()]
+        self.item_var = StringVar()
+        self.box_item = Combobox(self, textvariable=self.item_var, values=self.options_item, style='TCombobox')
+        self.box_item.place(x=322.0, y=160.0, width=716.0, height=33.0)
+
+        self.box_agencia.bind("<KeyRelease>", self.get_agencia)
+        self.box_item.bind("<KeyRelease>", self.get_item)
 
     def create_table(self):
         self.productos = ttk.Treeview(self, columns=("Nombre", "Descripcion", "precio","cantidad"))
