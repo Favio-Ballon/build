@@ -2,7 +2,7 @@ from tkinter import Canvas, PhotoImage, Button, Entry, StringVar, ttk, Toplevel
 from tkinter.ttk import Combobox
 from tkinter import simpledialog
 from pathlib import Path
-import login, inventario, cotizaciones, cliente
+import login, inventario, cotizaciones, cliente, facturacion
 import conexion
 
 
@@ -97,11 +97,11 @@ class MyPanel(Canvas):
         font=("Inter Bold", 40 * -1)
         )
 
-        self.create_text(
+        self.total = self.create_text(
         886.0,
         373.0,
         anchor="nw",
-        text="1,000.25",
+        text="000.00",
         fill="#FFFFFF",
         font=("Inter Bold", 30 * -1)
         )
@@ -181,15 +181,16 @@ class MyPanel(Canvas):
 
     def button_4_click(self):
         self.destroy()
-        panel = cotizaciones.MyPanel(self.master)
+        panel = cotizaciones.MyPanel(self.master,self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_5_click(self):
         self.destroy()
-        panel = cliente.MyPanel(self.master)
+        panel = cliente.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_6_click(self):
+        total = 0
         if self.cliente_var.get() != "" and self.item_var.get() != "":
             #Se ve si ya se creo una cotizacion, si no se crea una nueva
             if self.crear_cotizacion:
@@ -219,17 +220,20 @@ class MyPanel(Canvas):
                 # Insertar datos
                 for row in conexion.cur.fetchall():
                     self.productos.insert("", "end", text=row[0], values=(row[1], row[2], row[3],row[4]))
+                    total = total + (row[3]*row[4])
+
+                self.itemconfig(self.total, text=(str(total)))
             
 
 
 
 
     def button_7_click(self):
-        print("button_7 clicked")
+        self.facturar()
 
     def button_8_click(self):
-        print("button_8 clicked")
-
+        self.cotizar()
+    
     def get_cliente(self,event=None):
         conexion.cur.execute(("Select * from get_clientes_por_agencia("+str(self.agencia_id)+") where cliente_info iLIKE '%"+self.cliente_var.get()+"%';"))
         self.options_cliente = [str(row[0]) for row in conexion.cur.fetchall()]
@@ -244,3 +248,13 @@ class MyPanel(Canvas):
     def get_last_cot_num(self):
         conexion.cur.execute(("SELECT get_last_cotizacion_num()"))
         return conexion.cur.fetchone()[0]
+
+    def cotizar(self):
+        self.crear_cotizacion = True
+        self.destroy()
+        panel = facturacion.MyPanel(self.master,self.agencia_id)
+        panel.pack(expand=True, fill="both")
+    
+    def facturar(self):
+        conexion.cur.execute("CAll facturar(%s);"%(self.num_cot))
+        self.cotizar()

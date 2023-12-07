@@ -1,10 +1,13 @@
-from tkinter import Canvas, PhotoImage, Button, Entry
+from tkinter import Canvas, PhotoImage, Button, Entry, StringVar, ttk, Toplevel
+from tkinter.ttk import Combobox
+import tkinter as tk
 from pathlib import Path
 import login, facturacion, inventario,  cotizaciones
+import conexion 
 
 
 class MyPanel(Canvas):
-    def __init__(self, master):
+    def __init__(self, master, agencia_id):
         super().__init__(
             master,
             bg="#252346",
@@ -14,6 +17,7 @@ class MyPanel(Canvas):
             highlightthickness=0,
             relief="ridge"
         )
+        self.agencia_id = agencia_id
         OUTPUT_PATH = Path(__file__).parent
         self.assets_path = OUTPUT_PATH / Path(r"C:\Users\favio\Downloads\prueba\build\assets\frame3")
         self.create_widgets()
@@ -72,23 +76,17 @@ class MyPanel(Canvas):
     
     def create_entry(self):
 
-        self.entry_bg_1 = self.create_image(
-        680.0,
-        127.5,
-        image= self.entry_1
-        )
-        self.entry_1 = Entry(
-            bd=0,
-            bg="#D9D9D9",
-            fg="#000716",
-            highlightthickness=0
-        )
-        self.entry_1.place(
-            x=322.0,
-            y=110.0,
-            width=716.0,
-            height=33.0
-        )
+        combobox_style = ttk.Style()
+        combobox_style.configure('TCombobox', foreground='#000716', background='#D9D9D9', borderwidth=0, relief="flat")
+        
+        #combobox para la agencia
+        conexion.cur.execute(("Select * from get_clientes_por_agencia("+str(self.agencia_id)+");"))
+        self.options_cliente = [str(row[0]).split(" - ")[0] for row in conexion.cur.fetchall()]
+        self.cliente_var = StringVar()
+        self.box_cliente = Combobox(self, values=self.options_cliente, textvariable=self.cliente_var, style='TCombobox')
+        self.box_cliente.place(x=322.0, y=110.0, width=716.0, height=33.0)
+        self.box_cliente.bind('<<ComboboxSelected>>', self.rellenar)
+
 
         self.entry_bg_2 = self.create_image(
             680.0,
@@ -216,33 +214,53 @@ class MyPanel(Canvas):
     
     def button_2_click(self):
         self.destroy()
-        panel = inventario.MyPanel(self.master)
+        panel = inventario.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_3_click(self):
         self.destroy()
-        panel = facturacion.MyPanel(self.master)
+        panel = facturacion.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_4_click(self):
         self.destroy()
-        panel = cotizaciones.MyPanel(self.master)
+        panel = cotizaciones.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_5_click(self):
         pass
 
     def button_6_click(self):
-        print("button_6 clicked")
+        self.añadir()
 
     def button_7_click(self):
-        print("button_7 clicked")
-
-    def button_8_click(self):
-        print("button_8 clicked")
+        self.actualizar()
 
     def load_image(self, filename):
         return PhotoImage(file=self.assets_path / filename)
     
     def create_image(self, x, y, image):
         return super().create_image(x, y, image=image)
+    
+    def rellenar(self, event = None):
+        conexion.cur.execute("Select * from cliente where ci_nit = %s;"%(int(self.box_cliente.get().split(" - ")[0])))
+        row = conexion.cur.fetchone()
+        if(row != None):
+            self.entry_2.delete(0,len(self.entry_2.get()))
+            self.entry_3.delete(0,len(self.entry_3.get()))
+            self.entry_4.delete(0,len(self.entry_4.get()))
+            self.entry_5.delete(0,len(self.entry_5.get()))
+            self.entry_2.insert(0,row[1])
+            self.entry_3.insert(0,row[2])
+            self.entry_4.insert(0,row[3])
+            self.entry_5.insert(0,row[4])
+
+    def añadir(self):
+        print("call añadir_cliente(%s,'%s','%s','%s','%s',%s);"%(self.box_cliente.get().split(" - ")[0],self.entry_2.get(),self.entry_3.get(),self.entry_4.get(),self.entry_5.get(), self.agencia_id))
+        conexion.cur.execute("call añadir_cliente(%s,'%s','%s','%s','%s',%s);"%(self.box_cliente.get().split(" - ")[0],self.entry_2.get(),self.entry_3.get(),self.entry_4.get(),self.entry_5.get(), self.agencia_id))
+        conexion.conn.commit()
+
+    def actualizar(self):
+        print("call editar_cliente(%s,'%s','%s','%s','%s');"%(self.box_cliente.get().split(" - ")[0],self.entry_2.get(),self.entry_3.get(),self.entry_4.get(),self.entry_5.get()))
+        conexion.cur.execute("call editar_cliente(%s,'%s','%s','%s','%s');"%(self.box_cliente.get().split(" - ")[0],self.entry_2.get(),self.entry_3.get(),self.entry_4.get(),self.entry_5.get()))
+        conexion.conn.commit()

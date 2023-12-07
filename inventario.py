@@ -192,12 +192,12 @@ class MyPanel(Canvas):
 
     def button_4_click(self):
         self.destroy()
-        panel = cotizaciones.MyPanel(self.master)
+        panel = cotizaciones.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     def button_5_click(self):
         self.destroy()
-        panel = cliente.MyPanel(self.master)
+        panel = cliente.MyPanel(self.master, self.agencia_id)
         panel.pack(expand=True, fill="both")
 
     #buscar productos
