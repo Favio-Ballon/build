@@ -1,5 +1,6 @@
-from tkinter import Canvas, PhotoImage, Button, Entry, StringVar, ttk
+from tkinter import Canvas, PhotoImage, Button, Entry, StringVar, ttk, Toplevel
 from tkinter.ttk import Combobox
+from tkinter import simpledialog
 from pathlib import Path
 import login, inventario, cotizaciones, cliente
 import conexion
@@ -17,13 +18,13 @@ class MyPanel(Canvas):
             relief="ridge"
         )
         self.agencia_id = agencia_id
+        self.crear_cotizacion = True
         OUTPUT_PATH = Path(__file__).parent
         self.assets_path = OUTPUT_PATH / Path(r"C:\Users\favio\Downloads\prueba\build\assets\frame2")
         self.create_widgets()
 
     def create_widgets(self):
         self.load_images()
-
         self.create_image(540.0,40.0,self.image_1)
         self.create_image(50.0,400.0,self.image_2)
         self.create_image(265.0,40.0,self.image_3)
@@ -126,11 +127,11 @@ class MyPanel(Canvas):
         combobox_style.configure('TCombobox', foreground='#000716', background='#D9D9D9', borderwidth=0, relief="flat")
         
         #combobox para la agencia
-        conexion.cur.execute("SELECT concat(id, ' - ' ,nombre) FROM agencia;")
-        self.options_agencia = [str(row[0]) for row in conexion.cur.fetchall()]
-        self.agencia_var = StringVar()
-        self.box_agencia = Combobox(self, values=self.options_agencia, textvariable=self.agencia_var, style='TCombobox')
-        self.box_agencia.place(x=322.0, y=120.0, width=716.0, height=33.0)
+        conexion.cur.execute(("Select * from get_clientes_por_agencia("+str(self.agencia_id)+");"))
+        self.options_cliente = [str(row[0]) for row in conexion.cur.fetchall()]
+        self.cliente_var = StringVar()
+        self.box_cliente = Combobox(self, values=self.options_cliente, textvariable=self.cliente_var, style='TCombobox')
+        self.box_cliente.place(x=322.0, y=120.0, width=716.0, height=33.0)
 
 
         #combobox para el producto
@@ -140,12 +141,12 @@ class MyPanel(Canvas):
         self.box_item = Combobox(self, textvariable=self.item_var, values=self.options_item, style='TCombobox')
         self.box_item.place(x=322.0, y=160.0, width=716.0, height=33.0)
 
-        self.box_agencia.bind("<KeyRelease>", self.get_agencia)
+        self.box_cliente.bind("<KeyRelease>", self.get_cliente)
         self.box_item.bind("<KeyRelease>", self.get_item)
 
     def create_table(self):
         self.productos = ttk.Treeview(self, columns=("Nombre", "Descripcion", "precio","cantidad"))
-
+        
         # Define column headings
         self.productos.heading("#0", text="Codigo")
         self.productos.heading("#1", text="Nombre")
@@ -189,10 +190,57 @@ class MyPanel(Canvas):
         panel.pack(expand=True, fill="both")
 
     def button_6_click(self):
-        print("button_6 clicked")
+        if self.cliente_var.get() != "" and self.item_var.get() != "":
+            #Se ve si ya se creo una cotizacion, si no se crea una nueva
+            if self.crear_cotizacion:
+                self.crear_cotizacion = False
+                self.num_cot = self.get_last_cot_num()
+                self.cliente_id = int(self.box_cliente.get().split(" - ")[0])
+                conexion.cur.execute("CALL insert_cotizacion(%s, %s);"%(self.cliente_id, self.agencia_id))
+                conexion.conn.commit()
+            
+            #se crea ventana para preguntar la cantidad
+            result = simpledialog.askstring("Input", "Ingrese la cantidad")
+            print(result)
+            if result is not None:
+            #Se inserta el item a la tabla
+                conexion.cur.execute("SELECT insert_cotizacions_items(%s, %s, %s, %s);"%(self.num_cot, self.box_item.get().split(" - ")[0], result, self.agencia_id))
+                bandera = conexion.cur.fetchone()
+                print(bandera)
+                conexion.conn.commit()
+                if bandera:
+                    print("Item insertado correctamente")
+                else:
+                    print("Error al insertar el item a la cotizacion")
+
+                conexion.cur.execute("SELECT * from obtener_items_por_cotizacion("+str(self.num_cot)+");")
+                # Limpiar la tabla
+                self.productos.delete(*self.productos.get_children())
+                # Insertar datos
+                for row in conexion.cur.fetchall():
+                    self.productos.insert("", "end", text=row[0], values=(row[1], row[2], row[3],row[4]))
+            
+
+
+
 
     def button_7_click(self):
         print("button_7 clicked")
 
     def button_8_click(self):
         print("button_8 clicked")
+
+    def get_cliente(self,event=None):
+        conexion.cur.execute(("Select * from get_clientes_por_agencia("+str(self.agencia_id)+") where cliente_info iLIKE '%"+self.cliente_var.get()+"%';"))
+        self.options_cliente = [str(row[0]) for row in conexion.cur.fetchall()]
+        print(self.options_cliente)
+        self.box_cliente["values"] = self.options_cliente
+
+    def get_item(self,event=None):
+        conexion.cur.execute(("SELECT concat(codigo, ' - ', nombre) FROM item WHERE concat(codigo, ' - ', nombre) iLIKE '%"+self.item_var.get()+"%'"))
+        self.options_item = [str(row[0]) for row in conexion.cur.fetchall()]
+        self.box_item["values"] = self.options_item
+
+    def get_last_cot_num(self):
+        conexion.cur.execute(("SELECT get_last_cotizacion_num()"))
+        return conexion.cur.fetchone()[0]
